@@ -83,6 +83,18 @@ function isNineEightyOffFriday(day, anchorFriday) {
   return weeks % 2 === 1;
 }
 
+function isNineHourWorkday(day) {
+  const weekday = day.getDay();
+  return weekday >= 1 && weekday <= 4;
+}
+
+function resolveDefaultHours(day, fallbackHours) {
+  if (inputs.nineEighty.checked && inputs.nineEightyAnchor.value && isNineHourWorkday(day)) {
+    return 9;
+  }
+  return fallbackHours;
+}
+
 function saveState() {
   const payload = {
     inputs: {
@@ -352,7 +364,8 @@ function renderRanges() {
       input.step = "0.5";
       const iso = toISODate(date);
       const stored = range.overrides[iso];
-      input.value = Number(stored === undefined ? range.defaultHours : stored).toFixed(1);
+      const defaultHours = resolveDefaultHours(date, range.defaultHours);
+      input.value = Number(stored === undefined ? defaultHours : stored).toFixed(1);
       input.setAttribute("aria-label", `Hours for ${label.textContent}`);
       const handleHoursChange = (event) => {
         const parsed = parseFloat(event.target.value);
@@ -501,7 +514,8 @@ function updateForecast() {
     listDates(range.start, range.end).forEach((date) => {
       const iso = toISODate(date);
       const hours = range.overrides[iso];
-      const resolved = Number(hours === undefined ? range.defaultHours : hours) || 0;
+      const defaultHours = resolveDefaultHours(date, range.defaultHours);
+      const resolved = Number(hours === undefined ? defaultHours : hours) || 0;
       dayHours[iso] = (dayHours[iso] || 0) + resolved;
     });
   });
@@ -619,6 +633,7 @@ function handleInputUpdates() {
 function setNineEightyVisibility() {
   inputs.nineEightyAnchorRow.hidden = !inputs.nineEighty.checked;
   renderCalendar();
+  renderRanges();
 }
 
 function validateNineEightyAnchor() {
