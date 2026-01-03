@@ -89,8 +89,14 @@ function isNineHourWorkday(day) {
 }
 
 function resolveDefaultHours(day, fallbackHours) {
-  if (inputs.nineEighty.checked && inputs.nineEightyAnchor.value && isNineHourWorkday(day)) {
-    return 9;
+  if (inputs.nineEighty.checked && inputs.nineEightyAnchor.value) {
+    const anchor = normalizeAnchorFriday(parseISODate(inputs.nineEightyAnchor.value));
+    if (isNineEightyOffFriday(day, anchor)) {
+      return 0;
+    }
+    if (isNineHourWorkday(day)) {
+      return 9;
+    }
   }
   return fallbackHours;
 }
