@@ -5,6 +5,7 @@ from app import (
     holiday_deduction_hours,
     normalize_anchor_friday,
     normalize_holiday_payload,
+    filter_holidays_in_window,
     workday_hours,
 )
 
@@ -46,6 +47,7 @@ def test_normalize_holiday_payload_filters_outside_window():
         {"date": "2024-05-01", "name": "Test", "hours": 8},
         {"date": "2024-06-01", "name": "Out of range", "hours": 8},
     ]
-    normalized = normalize_holiday_payload(payload, date(2024, 5, 1), date(2024, 5, 31))
-    assert len(normalized) == 1
-    assert normalized[0]["date"] == date(2024, 5, 1)
+    normalized = normalize_holiday_payload(payload)
+    filtered = filter_holidays_in_window(normalized, date(2024, 5, 1), date(2024, 5, 31))
+    assert len(filtered) == 1
+    assert filtered[0]["date"] == date(2024, 5, 1)

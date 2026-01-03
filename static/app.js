@@ -468,6 +468,8 @@ function updateForecast() {
   if (inputs.nineEighty.checked && !inputs.nineEightyAnchor.value) return;
 
   const endDate = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth() + 2, 0);
+  const holidayWindowStart = new Date(state.viewDate.getFullYear(), 0, 1);
+  const holidayWindowEnd = new Date(state.viewDate.getFullYear(), 11, 31);
   const dayHours = {};
   state.ranges.forEach((range) => {
     listDates(range.start, range.end).forEach((date) => {
@@ -499,6 +501,8 @@ function updateForecast() {
       : state.holidaysInitialized
         ? []
         : null,
+    holiday_window_start: state.holidaysInitialized ? null : toISODate(holidayWindowStart),
+    holiday_window_end: state.holidaysInitialized ? null : toISODate(holidayWindowEnd),
   };
 
   fetch("/forecast", {

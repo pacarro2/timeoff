@@ -162,11 +162,7 @@ def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
     return {day: name for day, name in holidays.items() if window_start <= day <= window_end}
 
 
-def normalize_holiday_payload(
-    payload: List[Dict[str, Any]] | None,
-    window_start: date,
-    window_end: date,
-) -> List[Dict[str, Any]]:
+def normalize_holiday_payload(payload: List[Dict[str, Any]] | None) -> List[Dict[str, Any]]:
     if not payload:
         return []
     normalized = []
@@ -178,8 +174,6 @@ def normalize_holiday_payload(
             day = parse_date(raw_date)
         except (ValueError, TypeError):
             continue
-        if day < window_start or day > window_end:
-            continue
         name = item.get("name") or "Holiday"
         try:
             hours = float(item.get("hours", 8))
@@ -187,6 +181,16 @@ def normalize_holiday_payload(
             hours = 8.0
         normalized.append({"date": day, "name": name, "hours": hours})
     return normalized
+
+
+def filter_holidays_in_window(
+    holidays: List[Dict[str, Any]], window_start: date, window_end: date
+) -> List[Dict[str, Any]]:
+    return [
+        holiday
+        for holiday in holidays
+        if window_start <= holiday["date"] <= window_end
+    ]
 
 
 @app.route("/")
@@ -207,6 +211,8 @@ def forecast():
     nine_eighty_anchor = payload.get("nine_eighty_anchor")
     days = payload.get("days", [])
     holidays_payload = payload.get("holidays")
+    holiday_window_start = payload.get("holiday_window_start")
+    holiday_window_end = payload.get("holiday_window_end")
 
     today = date.today()
     window_start = today
@@ -218,15 +224,20 @@ def forecast():
     pay_dates = build_pay_dates(next_pay_date, end_date, schedule)
     planned = build_planned_hours(days, window_start, window_end, include_weekends)
 
-    normalized_holidays = normalize_holiday_payload(holidays_payload, window_start, window_end)
+    normalized_holidays = normalize_holiday_payload(holidays_payload)
     if holidays_payload is None:
-        holidays = federal_holidays(window_start, window_end)
+        holiday_start = window_start
+        holiday_end = window_end
+        if holiday_window_start and holiday_window_end:
+            holiday_start = parse_date(holiday_window_start)
+            holiday_end = parse_date(holiday_window_end)
+        holidays = federal_holidays(holiday_start, holiday_end)
         normalized_holidays = [
             {"date": day, "name": name, "hours": 8.0} for day, name in holidays.items()
         ]
 
     holiday_hours = {}
-    for holiday in normalized_holidays:
+    for holiday in filter_holidays_in_window(normalized_holidays, window_start, window_end):
         day = holiday["date"]
         base_hours = holiday["hours"]
         deducted = holiday_deduction_hours(day, base_hours, nine_eighty, anchor_friday)
