@@ -8,6 +8,9 @@ const inputs = {
   schedule: document.getElementById("schedule"),
   nextPayDate: document.getElementById("next-pay-date"),
   includeWeekends: document.getElementById("include-weekends"),
+  nineEighty: document.getElementById("nine-eighty"),
+  nineEightyAnchor: document.getElementById("nine-eighty-anchor"),
+  nineEightyAnchorRow: document.getElementById("nine-eighty-anchor-row"),
 };
 
 const state = {
@@ -65,6 +68,8 @@ function saveState() {
       schedule: inputs.schedule.value,
       nextPayDate: inputs.nextPayDate.value,
       includeWeekends: inputs.includeWeekends.checked,
+      nineEighty: inputs.nineEighty.checked,
+      nineEightyAnchor: inputs.nineEightyAnchor.value,
     },
     viewDate: toISODate(new Date(state.viewDate)),
     ranges: state.ranges.map((range) => ({
@@ -88,6 +93,8 @@ function loadState() {
       inputs.schedule.value = payload.inputs.schedule ?? inputs.schedule.value;
       inputs.nextPayDate.value = payload.inputs.nextPayDate ?? inputs.nextPayDate.value;
       inputs.includeWeekends.checked = Boolean(payload.inputs.includeWeekends);
+      inputs.nineEighty.checked = Boolean(payload.inputs.nineEighty);
+      inputs.nineEightyAnchor.value = payload.inputs.nineEightyAnchor ?? inputs.nineEightyAnchor.value;
     }
     if (payload.viewDate) {
       state.viewDate = parseISODate(payload.viewDate);
@@ -310,6 +317,8 @@ function addRange() {
 function updateForecast() {
   if (!inputs.nextPayDate.value) return;
 
+  if (inputs.nineEighty.checked && !inputs.nineEightyAnchor.value) return;
+
   const endDate = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth() + 2, 0);
   const dayHours = {};
   state.ranges.forEach((range) => {
@@ -327,6 +336,8 @@ function updateForecast() {
     next_pay_date: inputs.nextPayDate.value,
     end_date: toISODate(endDate),
     include_weekends: inputs.includeWeekends.checked,
+    nine_eighty: inputs.nineEighty.checked,
+    nine_eighty_anchor: inputs.nineEightyAnchor.value || null,
     days: Object.entries(dayHours).map(([date, hours]) => ({
       date,
       hours,
@@ -381,12 +392,18 @@ function handleInputUpdates() {
   });
 }
 
+function setNineEightyVisibility() {
+  inputs.nineEightyAnchorRow.hidden = !inputs.nineEighty.checked;
+}
+
 seedDates();
 loadState();
+setNineEightyVisibility();
 renderCalendar();
 updateSelectedLabel();
 renderRanges();
 handleNavigation();
 handleInputUpdates();
 addRangeBtn.addEventListener("click", addRange);
+inputs.nineEighty.addEventListener("change", setNineEightyVisibility);
 updateForecast();

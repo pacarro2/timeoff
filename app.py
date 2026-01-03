@@ -73,6 +73,80 @@ def build_planned_hours(
     return planned
 
 
+def is_nine_eighty_off_friday(day: date, anchor_friday: date) -> bool:
+    if day.weekday() != 4:
+        return False
+    weeks = (day - anchor_friday).days // 7
+    return weeks % 2 == 1
+
+
+def workday_hours(day: date, nine_eighty: bool, anchor_friday: date | None) -> int:
+    weekday = day.weekday()
+    if weekday >= 5:
+        return 0
+    if not nine_eighty:
+        return 8
+    if weekday <= 3:
+        return 9
+    if anchor_friday and is_nine_eighty_off_friday(day, anchor_friday):
+        return 0
+    return 8
+
+
+def normalize_anchor_friday(anchor: date) -> date:
+    if anchor.weekday() == 4:
+        return anchor
+    days_ahead = (4 - anchor.weekday()) % 7
+    return anchor + timedelta(days=days_ahead)
+
+
+def observed_date(holiday: date) -> date:
+    if holiday.weekday() == 5:
+        return holiday - timedelta(days=1)
+    if holiday.weekday() == 6:
+        return holiday + timedelta(days=1)
+    return holiday
+
+
+def nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
+    first = date(year, month, 1)
+    days_ahead = (weekday - first.weekday()) % 7
+    return first + timedelta(days=days_ahead + 7 * (n - 1))
+
+
+def last_weekday(year: int, month: int, weekday: int) -> date:
+    last_day = calendar.monthrange(year, month)[1]
+    last = date(year, month, last_day)
+    days_back = (last.weekday() - weekday) % 7
+    return last - timedelta(days=days_back)
+
+
+def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
+    holidays = {}
+    for year in range(window_start.year - 1, window_end.year + 2):
+        fixed = [
+            (date(year, 1, 1), "New Year's Day"),
+            (date(year, 6, 19), "Juneteenth"),
+            (date(year, 7, 4), "Independence Day"),
+            (date(year, 11, 11), "Veterans Day"),
+            (date(year, 12, 25), "Christmas Day"),
+        ]
+        floating = [
+            (nth_weekday(year, 1, 0, 3), "Martin Luther King Jr. Day"),
+            (nth_weekday(year, 2, 0, 3), "Presidents' Day"),
+            (last_weekday(year, 5, 0), "Memorial Day"),
+            (nth_weekday(year, 9, 0, 1), "Labor Day"),
+            (nth_weekday(year, 10, 0, 2), "Columbus Day"),
+            (nth_weekday(year, 11, 3, 4), "Thanksgiving Day"),
+        ]
+        for holiday, name in fixed:
+            observed = observed_date(holiday)
+            holidays[observed] = name
+        for holiday, name in floating:
+            holidays[holiday] = name
+    return {day: name for day, name in holidays.items() if window_start <= day <= window_end}
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -87,19 +161,35 @@ def forecast():
     next_pay_date = parse_date(payload.get("next_pay_date"))
     end_date = parse_date(payload.get("end_date"))
     include_weekends = bool(payload.get("include_weekends", False))
+    nine_eighty = bool(payload.get("nine_eighty", False))
+    nine_eighty_anchor = payload.get("nine_eighty_anchor")
     days = payload.get("days", [])
 
     today = date.today()
     window_start = today
     window_end = end_date
 
+    anchor_friday = None
+    if nine_eighty and nine_eighty_anchor:
+        anchor_friday = normalize_anchor_friday(parse_date(nine_eighty_anchor))
     pay_dates = build_pay_dates(next_pay_date, end_date, schedule)
     planned = build_planned_hours(days, window_start, window_end, include_weekends)
+    holidays = federal_holidays(window_start, window_end)
+    holiday_hours = {}
+    for holiday in holidays:
+        hours = workday_hours(holiday, nine_eighty, anchor_friday)
+        if hours == 0:
+            continue
+        if nine_eighty and hours == 9:
+            holiday_hours[holiday] = 9
+        else:
+            holiday_hours[holiday] = 8
 
     balance = pto_today
     balances = {}
     accrued_total = 0.0
     planned_total = 0.0
+    holiday_total = 0.0
     cursor = today
     while cursor <= end_date:
         if cursor in pay_dates:
@@ -108,6 +198,9 @@ def forecast():
         if cursor in planned:
             balance -= planned[cursor]
             planned_total += planned[cursor]
+        if cursor in holiday_hours:
+            balance -= holiday_hours[cursor]
+            holiday_total += holiday_hours[cursor]
         balances[cursor.isoformat()] = round(balance, 2)
         cursor += timedelta(days=1)
 
@@ -116,6 +209,7 @@ def forecast():
             "balances": balances,
             "accrued_total": round(accrued_total, 2),
             "planned_total": round(planned_total, 2),
+            "holiday_total": round(holiday_total, 2),
         }
     )
 

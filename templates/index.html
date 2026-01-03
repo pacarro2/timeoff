@@ -48,8 +48,17 @@
             <input id="include-weekends" type="checkbox">
             Count weekends as PTO
           </label>
+          <label class="checkbox">
+            <input id="nine-eighty" type="checkbox">
+            Use 9/80 schedule (alternate Fridays off)
+          </label>
+          <label id="nine-eighty-anchor-row" class="inline-field" hidden>
+            9/80 anchor Friday
+            <input id="nine-eighty-anchor" type="date">
+          </label>
         </div>
         <p class="helper">Semi-monthly expects the next pay date to be the 15th or the last day of the month.</p>
+        <p class="helper">Pick the Friday that is your 8-hour day; the next Friday is off, then it alternates.</p>
       </section>
 
       <section class="panel calendar-panel">
