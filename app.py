@@ -101,11 +101,12 @@ def holiday_deduction_hours(
 ) -> float:
     if base_hours <= 0:
         return 0.0
-    work_hours = workday_hours(day, nine_eighty, anchor_friday)
-    if work_hours == 0:
+    if not nine_eighty:
         return 0.0
-    extra_hour = 1 if nine_eighty and work_hours == 9 else 0
-    return base_hours + extra_hour
+    work_hours = workday_hours(day, nine_eighty, anchor_friday)
+    if work_hours != 9:
+        return 0.0
+    return 1.0
 
 
 def normalize_anchor_friday(anchor: date) -> date:
