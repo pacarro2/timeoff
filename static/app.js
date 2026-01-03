@@ -4,6 +4,7 @@ const addHolidayBtn = document.getElementById("add-holiday");
 const selectedRangeEl = document.getElementById("selected-range");
 const rangesEl = document.getElementById("ranges");
 const holidaysEl = document.getElementById("holidays");
+const resetAllBtn = document.getElementById("reset-all");
 const inputs = {
   ptoToday: document.getElementById("pto-today"),
   accrualRate: document.getElementById("accrual-rate"),
@@ -536,6 +537,38 @@ function seedDates() {
   inputs.nextPayDate.value = toISODate(nextPay);
 }
 
+function resetAll() {
+  const confirmed = window.confirm("Clear all inputs, trips, and holidays and restore defaults?");
+  if (!confirmed) return;
+
+  localStorage.removeItem(STORAGE_KEY);
+
+  inputs.ptoToday.value = "40";
+  inputs.accrualRate.value = "2.5";
+  inputs.schedule.value = "biweekly";
+  inputs.includeWeekends.checked = false;
+  inputs.nineEighty.checked = false;
+  inputs.nineEightyAnchor.value = "";
+
+  state.viewDate = new Date();
+  state.selectedStart = null;
+  state.selectedEnd = null;
+  state.ranges = [];
+  state.holidays = [];
+  state.holidaysInitialized = false;
+  state.balances = {};
+
+  seedDates();
+  setNineEightyVisibility();
+  updateSelectedLabel();
+  updateSelectionActions();
+  renderRanges();
+  renderHolidays();
+  renderCalendar();
+  updateForecast();
+  saveState();
+}
+
 function handleNavigation() {
   document.getElementById("prev-month").addEventListener("click", () => {
     state.viewDate = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth() - 1, 1);
@@ -598,4 +631,5 @@ addHolidayBtn.addEventListener("click", addHoliday);
 inputs.nineEighty.addEventListener("change", setNineEightyVisibility);
 inputs.nineEightyAnchor.addEventListener("change", validateNineEightyAnchor);
 inputs.nineEightyAnchor.addEventListener("input", validateNineEightyAnchor);
+resetAllBtn.addEventListener("click", resetAll);
 updateForecast();
