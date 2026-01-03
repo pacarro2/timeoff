@@ -93,6 +93,21 @@ def workday_hours(day: date, nine_eighty: bool, anchor_friday: date | None) -> i
     return 8
 
 
+def holiday_deduction_hours(
+    day: date,
+    base_hours: float,
+    nine_eighty: bool,
+    anchor_friday: date | None,
+) -> float:
+    if base_hours <= 0:
+        return 0.0
+    work_hours = workday_hours(day, nine_eighty, anchor_friday)
+    if work_hours == 0:
+        return 0.0
+    extra_hour = 1 if nine_eighty and work_hours == 9 else 0
+    return base_hours + extra_hour
+
+
 def normalize_anchor_friday(anchor: date) -> date:
     if anchor.weekday() == 4:
         return anchor
@@ -147,6 +162,33 @@ def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
     return {day: name for day, name in holidays.items() if window_start <= day <= window_end}
 
 
+def normalize_holiday_payload(
+    payload: List[Dict[str, Any]] | None,
+    window_start: date,
+    window_end: date,
+) -> List[Dict[str, Any]]:
+    if not payload:
+        return []
+    normalized = []
+    for item in payload:
+        raw_date = item.get("date")
+        if not raw_date:
+            continue
+        try:
+            day = parse_date(raw_date)
+        except (ValueError, TypeError):
+            continue
+        if day < window_start or day > window_end:
+            continue
+        name = item.get("name") or "Holiday"
+        try:
+            hours = float(item.get("hours", 8))
+        except (TypeError, ValueError):
+            hours = 8.0
+        normalized.append({"date": day, "name": name, "hours": hours})
+    return normalized
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -164,6 +206,7 @@ def forecast():
     nine_eighty = bool(payload.get("nine_eighty", False))
     nine_eighty_anchor = payload.get("nine_eighty_anchor")
     days = payload.get("days", [])
+    holidays_payload = payload.get("holidays")
 
     today = date.today()
     window_start = today
@@ -174,16 +217,22 @@ def forecast():
         anchor_friday = normalize_anchor_friday(parse_date(nine_eighty_anchor))
     pay_dates = build_pay_dates(next_pay_date, end_date, schedule)
     planned = build_planned_hours(days, window_start, window_end, include_weekends)
-    holidays = federal_holidays(window_start, window_end)
+
+    normalized_holidays = normalize_holiday_payload(holidays_payload, window_start, window_end)
+    if holidays_payload is None:
+        holidays = federal_holidays(window_start, window_end)
+        normalized_holidays = [
+            {"date": day, "name": name, "hours": 8.0} for day, name in holidays.items()
+        ]
+
     holiday_hours = {}
-    for holiday in holidays:
-        hours = workday_hours(holiday, nine_eighty, anchor_friday)
-        if hours == 0:
+    for holiday in normalized_holidays:
+        day = holiday["date"]
+        base_hours = holiday["hours"]
+        deducted = holiday_deduction_hours(day, base_hours, nine_eighty, anchor_friday)
+        if deducted == 0:
             continue
-        if nine_eighty and hours == 9:
-            holiday_hours[holiday] = 9
-        else:
-            holiday_hours[holiday] = 8
+        holiday_hours[day] = holiday_hours.get(day, 0) + deducted
 
     balance = pto_today
     balances = {}
@@ -210,6 +259,14 @@ def forecast():
             "accrued_total": round(accrued_total, 2),
             "planned_total": round(planned_total, 2),
             "holiday_total": round(holiday_total, 2),
+            "holidays": [
+                {
+                    "date": holiday["date"].isoformat(),
+                    "name": holiday["name"],
+                    "hours": holiday["hours"],
+                }
+                for holiday in normalized_holidays
+            ],
         }
     )
 

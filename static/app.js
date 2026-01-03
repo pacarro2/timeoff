@@ -1,7 +1,9 @@
 const calendarEl = document.getElementById("calendar");
 const addRangeBtn = document.getElementById("add-range");
+const addHolidayBtn = document.getElementById("add-holiday");
 const selectedRangeEl = document.getElementById("selected-range");
 const rangesEl = document.getElementById("ranges");
+const holidaysEl = document.getElementById("holidays");
 const inputs = {
   ptoToday: document.getElementById("pto-today"),
   accrualRate: document.getElementById("accrual-rate"),
@@ -18,6 +20,8 @@ const state = {
   selectedStart: null,
   selectedEnd: null,
   ranges: [],
+  holidays: [],
+  holidaysInitialized: false,
   balances: {},
 };
 
@@ -78,6 +82,13 @@ function saveState() {
       defaultHours: range.defaultHours,
       overrides: range.overrides,
     })),
+    holidays: state.holidays.map((holiday) => ({
+      id: holiday.id,
+      date: holiday.date,
+      name: holiday.name,
+      hours: holiday.hours,
+    })),
+    holidaysInitialized: state.holidaysInitialized,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -107,9 +118,43 @@ function loadState() {
         overrides: range.overrides || {},
       }));
     }
+    if (Array.isArray(payload.holidays)) {
+      state.holidays = payload.holidays.map((holiday) => normalizeHoliday(holiday)).filter(Boolean);
+      state.holidaysInitialized = true;
+    }
+    if (payload.holidaysInitialized !== undefined) {
+      state.holidaysInitialized = Boolean(payload.holidaysInitialized);
+    }
   } catch (error) {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function createHolidayId() {
+  return `holiday-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeHoliday(holiday) {
+  const date = holiday.date;
+  if (!date) {
+    return null;
+  }
+  return {
+    id: holiday.id || createHolidayId(),
+    date,
+    name: holiday.name || "Holiday",
+    hours: Number(holiday.hours ?? 8),
+  };
+}
+
+function getHolidayByDate() {
+  const lookup = {};
+  state.holidays.forEach((holiday) => {
+    if (holiday && holiday.date) {
+      lookup[holiday.date] = holiday;
+    }
+  });
+  return lookup;
 }
 
 function renderMonth(monthDate) {
@@ -144,6 +189,7 @@ function renderMonth(monthDate) {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const holidayByDate = getHolidayByDate();
 
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month, day);
@@ -169,6 +215,11 @@ function renderMonth(monthDate) {
     }
     if (rangeOverlaps(date, state.ranges)) {
       button.classList.add("booked");
+    }
+    const holiday = holidayByDate[toISODate(date)];
+    if (holiday && Number(holiday.hours || 0) > 0) {
+      button.classList.add("holiday");
+      button.title = holiday.name;
     }
 
     const balance = state.balances[toISODate(date)];
@@ -207,6 +258,11 @@ function updateSelectedLabel() {
   selectedRangeEl.textContent = `${formatDisplay(state.selectedStart)} to ${formatDisplay(state.selectedEnd)}`;
 }
 
+function updateSelectionActions() {
+  addRangeBtn.disabled = !(state.selectedStart && state.selectedEnd);
+  addHolidayBtn.disabled = !state.selectedStart;
+}
+
 function handleSelectDate(date) {
   if (!state.selectedStart || (state.selectedStart && state.selectedEnd)) {
     state.selectedStart = date;
@@ -217,7 +273,7 @@ function handleSelectDate(date) {
   } else {
     state.selectedEnd = date;
   }
-  addRangeBtn.disabled = !(state.selectedStart && state.selectedEnd);
+  updateSelectionActions();
   updateSelectedLabel();
   renderCalendar();
 }
@@ -306,12 +362,104 @@ function addRange() {
   });
   state.selectedStart = null;
   state.selectedEnd = null;
-  addRangeBtn.disabled = true;
+  updateSelectionActions();
   updateSelectedLabel();
   renderRanges();
   renderCalendar();
   updateForecast();
   saveState();
+}
+
+function addHoliday() {
+  if (!state.selectedStart) return;
+  const date = toISODate(state.selectedStart);
+  if (state.holidays.some((holiday) => holiday.date === date)) {
+    return;
+  }
+  state.holidays.push(
+    normalizeHoliday({
+      date,
+      name: "Holiday",
+      hours: 8,
+    }),
+  );
+  state.holidaysInitialized = true;
+  state.selectedStart = null;
+  state.selectedEnd = null;
+  updateSelectionActions();
+  updateSelectedLabel();
+  renderHolidays();
+  renderCalendar();
+  updateForecast();
+  saveState();
+}
+
+function renderHolidays() {
+  holidaysEl.innerHTML = "";
+  if (!state.holidays.length) {
+    holidaysEl.textContent = "No holidays selected yet.";
+    return;
+  }
+  const sorted = [...state.holidays].sort((a, b) => a.date.localeCompare(b.date));
+  sorted.forEach((holiday) => {
+    const item = document.createElement("div");
+    item.className = "holiday-item";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = holiday.name;
+    nameInput.setAttribute("aria-label", "Holiday name");
+
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.value = holiday.date;
+    dateInput.setAttribute("aria-label", "Holiday date");
+
+    const hoursInput = document.createElement("input");
+    hoursInput.type = "number";
+    hoursInput.min = "0";
+    hoursInput.step = "0.5";
+    hoursInput.value = Number(holiday.hours || 0).toFixed(1);
+    hoursInput.setAttribute("aria-label", "Holiday hours");
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      state.holidays = state.holidays.filter((item) => item.id !== holiday.id);
+      renderHolidays();
+      renderCalendar();
+      updateForecast();
+      saveState();
+    });
+
+    nameInput.addEventListener("input", (event) => {
+      holiday.name = event.target.value;
+      updateForecast();
+      saveState();
+    });
+
+    dateInput.addEventListener("change", (event) => {
+      holiday.date = event.target.value;
+      renderCalendar();
+      updateForecast();
+      saveState();
+    });
+
+    hoursInput.addEventListener("change", (event) => {
+      const parsed = parseFloat(event.target.value);
+      holiday.hours = Number.isFinite(parsed) ? parsed : 0;
+      renderCalendar();
+      updateForecast();
+      saveState();
+    });
+
+    item.appendChild(nameInput);
+    item.appendChild(dateInput);
+    item.appendChild(hoursInput);
+    item.appendChild(removeBtn);
+    holidaysEl.appendChild(item);
+  });
 }
 
 function updateForecast() {
@@ -342,6 +490,15 @@ function updateForecast() {
       date,
       hours,
     })),
+    holidays: state.holidays.length
+      ? state.holidays.map((holiday) => ({
+          date: holiday.date,
+          name: holiday.name,
+          hours: holiday.hours,
+        }))
+      : state.holidaysInitialized
+        ? []
+        : null,
   };
 
   fetch("/forecast", {
@@ -352,6 +509,11 @@ function updateForecast() {
     .then((response) => response.json())
     .then((data) => {
       state.balances = data.balances || {};
+      if (!state.holidaysInitialized && Array.isArray(data.holidays)) {
+        state.holidays = data.holidays.map((holiday) => normalizeHoliday(holiday)).filter(Boolean);
+        state.holidaysInitialized = true;
+        renderHolidays();
+      }
       renderCalendar();
       saveState();
     })
@@ -396,14 +558,40 @@ function setNineEightyVisibility() {
   inputs.nineEightyAnchorRow.hidden = !inputs.nineEighty.checked;
 }
 
+function validateNineEightyAnchor() {
+  if (!inputs.nineEighty.checked) {
+    inputs.nineEightyAnchor.setCustomValidity("");
+    return;
+  }
+  if (!inputs.nineEightyAnchor.value) {
+    inputs.nineEightyAnchor.setCustomValidity("");
+    return;
+  }
+  const selected = parseISODate(inputs.nineEightyAnchor.value);
+  if (selected.getDay() !== 5) {
+    inputs.nineEightyAnchor.setCustomValidity("Please select a Friday.");
+  } else {
+    inputs.nineEightyAnchor.setCustomValidity("");
+  }
+  inputs.nineEightyAnchor.reportValidity();
+  if (inputs.nineEightyAnchor.validationMessage) {
+    inputs.nineEightyAnchor.value = "";
+  }
+}
+
 seedDates();
 loadState();
 setNineEightyVisibility();
 renderCalendar();
 updateSelectedLabel();
+updateSelectionActions();
 renderRanges();
+renderHolidays();
 handleNavigation();
 handleInputUpdates();
 addRangeBtn.addEventListener("click", addRange);
+addHolidayBtn.addEventListener("click", addHoliday);
 inputs.nineEighty.addEventListener("change", setNineEightyVisibility);
+inputs.nineEightyAnchor.addEventListener("change", validateNineEightyAnchor);
+inputs.nineEightyAnchor.addEventListener("input", validateNineEightyAnchor);
 updateForecast();

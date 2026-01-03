@@ -80,7 +80,10 @@
             <p class="selected-label">Selected</p>
             <p id="selected-range">Choose a start date</p>
           </div>
-          <button id="add-range" class="primary" disabled>Add trip</button>
+          <div class="calendar-buttons">
+            <button id="add-holiday" class="ghost" disabled>Add holiday</button>
+            <button id="add-range" class="primary" disabled>Add trip</button>
+          </div>
         </div>
       </section>
 
@@ -88,6 +91,12 @@
         <h2>Planned trips</h2>
         <p class="subtext">Adjust hours per day for each trip before or after saving.</p>
         <div id="ranges" class="ranges"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Holiday calendar</h2>
+        <p class="subtext">Federal holidays are preloaded. Edit names, hours, or dates to match your schedule.</p>
+        <div id="holidays" class="holiday-list"></div>
       </section>
     </main>
   </div>
