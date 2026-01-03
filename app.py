@@ -142,10 +142,13 @@ def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
     for year in range(window_start.year - 1, window_end.year + 2):
         fixed = [
             (date(year, 1, 1), "New Year's Day"),
+            (date(year, 3, 31), "Cesar Chavez Day"),
             (date(year, 6, 19), "Juneteenth"),
             (date(year, 7, 4), "Independence Day"),
             (date(year, 11, 11), "Veterans Day"),
+            (date(year, 12, 24), "Christmas Eve"),
             (date(year, 12, 25), "Christmas Day"),
+            (date(year, 12, 31), "New Year's Eve"),
         ]
         floating = [
             (nth_weekday(year, 1, 0, 3), "Martin Luther King Jr. Day"),
@@ -156,6 +159,9 @@ def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
             (nth_weekday(year, 11, 3, 4), "Thanksgiving Day"),
         ]
         for holiday, name in fixed:
+            if name in {"Christmas Eve", "New Year's Eve"}:
+                holidays[holiday] = name
+                continue
             observed = observed_date(holiday)
             holidays[observed] = name
         for holiday, name in floating:
@@ -233,9 +239,10 @@ def forecast():
             holiday_start = parse_date(holiday_window_start)
             holiday_end = parse_date(holiday_window_end)
         holidays = federal_holidays(holiday_start, holiday_end)
-        normalized_holidays = [
-            {"date": day, "name": name, "hours": 8.0} for day, name in holidays.items()
-        ]
+        normalized_holidays = []
+        for day, name in holidays.items():
+            hours = 4.0 if name in {"Christmas Eve", "New Year's Eve"} else 8.0
+            normalized_holidays.append({"date": day, "name": name, "hours": hours})
 
     holiday_hours = {}
     for holiday in filter_holidays_in_window(normalized_holidays, window_start, window_end):
