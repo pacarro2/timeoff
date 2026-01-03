@@ -109,6 +109,21 @@ def holiday_deduction_hours(
     return 1.0
 
 
+def holiday_credit_hours(
+    day: date,
+    base_hours: float,
+    nine_eighty: bool,
+    anchor_friday: date | None,
+) -> float:
+    if base_hours <= 0:
+        return 0.0
+    if not nine_eighty or not anchor_friday:
+        return 0.0
+    if not is_nine_eighty_off_friday(day, anchor_friday):
+        return 0.0
+    return 8.0
+
+
 def normalize_anchor_friday(anchor: date) -> date:
     if anchor.weekday() == 4:
         return anchor
@@ -245,13 +260,16 @@ def forecast():
             normalized_holidays.append({"date": day, "name": name, "hours": hours})
 
     holiday_hours = {}
+    holiday_credits = {}
     for holiday in filter_holidays_in_window(normalized_holidays, window_start, window_end):
         day = holiday["date"]
         base_hours = holiday["hours"]
         deducted = holiday_deduction_hours(day, base_hours, nine_eighty, anchor_friday)
-        if deducted == 0:
-            continue
-        holiday_hours[day] = holiday_hours.get(day, 0) + deducted
+        if deducted:
+            holiday_hours[day] = holiday_hours.get(day, 0) + deducted
+        credited = holiday_credit_hours(day, base_hours, nine_eighty, anchor_friday)
+        if credited:
+            holiday_credits[day] = holiday_credits.get(day, 0) + credited
 
     balance = pto_today
     balances = {}
@@ -269,6 +287,8 @@ def forecast():
         if cursor in holiday_hours:
             balance -= holiday_hours[cursor]
             holiday_total += holiday_hours[cursor]
+        if cursor in holiday_credits and cursor not in planned:
+            balance += holiday_credits[cursor]
         balances[cursor.isoformat()] = round(balance, 2)
         cursor += timedelta(days=1)
 

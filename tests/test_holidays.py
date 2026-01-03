@@ -3,6 +3,7 @@ from datetime import date
 from app import (
     federal_holidays,
     holiday_deduction_hours,
+    holiday_credit_hours,
     normalize_anchor_friday,
     normalize_holiday_payload,
     filter_holidays_in_window,
@@ -46,6 +47,12 @@ def test_holiday_deduction_skips_when_nine_eighty_disabled():
     anchor = date(2024, 5, 3)
     nine_hour_day = date(2024, 5, 6)
     assert holiday_deduction_hours(nine_hour_day, 8, False, anchor) == 0
+
+
+def test_holiday_credit_on_off_friday():
+    anchor = date(2024, 5, 3)
+    off_friday = date(2024, 5, 10)
+    assert holiday_credit_hours(off_friday, 8, True, anchor) == 8
 
 
 def test_normalize_holiday_payload_filters_outside_window():
