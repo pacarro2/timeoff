@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PTO Forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">PTO FORECAST</p>
+        <h1>City of Santa Cruz Vacation Forecaster</h1>
+        <p class="subhead">Pick dates, see accruals, and watch your balance update on each calendar day.</p>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel">
+        <h2>Forecast inputs</h2>
+        <div class="form-grid">
+          <label>
+            PTO balance today
+            <input id="pto-today" type="number" min="0" step="0.1" value="40">
+          </label>
+          <label>
+            Accrual per pay period
+            <input id="accrual-rate" type="number" min="0" step="0.1" value="2.5">
+          </label>
+          <label>
+            Pay period schedule
+            <select id="schedule">
+              <option value="weekly">Weekly</option>
+              <option value="biweekly" selected>Biweekly</option>
+              <option value="semimonthly">Semi-monthly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+          <label>
+            Next pay date
+            <input id="next-pay-date" type="date">
+          </label>
+          <label class="checkbox">
+            <input id="include-weekends" type="checkbox">
+            Count weekends as PTO
+          </label>
+        </div>
+        <p class="helper">Semi-monthly expects the next pay date to be the 15th or the last day of the month.</p>
+      </section>
+
+      <section class="panel calendar-panel">
+        <div class="calendar-header">
+          <div>
+            <h2>Plan future vacation</h2>
+            <p class="subtext">Select a start and end date to add a trip. You can add multiple ranges.</p>
+          </div>
+          <div class="calendar-actions">
+            <button id="prev-month" class="ghost">Previous</button>
+            <button id="next-month" class="ghost">Next</button>
+          </div>
+        </div>
+
+        <div id="calendar" class="calendar"></div>
+
+        <div class="calendar-footer">
+          <div>
+            <p class="selected-label">Selected</p>
+            <p id="selected-range">Choose a start date</p>
+          </div>
+          <button id="add-range" class="primary" disabled>Add trip</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Planned trips</h2>
+        <p class="subtext">Adjust hours per day for each trip before or after saving.</p>
+        <div id="ranges" class="ranges"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
