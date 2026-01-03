@@ -65,6 +65,24 @@ function listDates(start, end) {
   return dates;
 }
 
+function normalizeAnchorFriday(anchor) {
+  if (anchor.getDay() === 5) return anchor;
+  const daysAhead = (5 - anchor.getDay() + 7) % 7;
+  return new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + daysAhead);
+}
+
+function daysBetween(a, b) {
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.floor((utcA - utcB) / 86400000);
+}
+
+function isNineEightyOffFriday(day, anchorFriday) {
+  if (day.getDay() !== 5) return false;
+  const weeks = Math.floor(daysBetween(day, anchorFriday) / 7);
+  return weeks % 2 === 1;
+}
+
 function saveState() {
   const payload = {
     inputs: {
@@ -191,6 +209,10 @@ function renderMonth(monthDate) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const holidayByDate = getHolidayByDate();
+  let anchorFriday = null;
+  if (inputs.nineEighty.checked && inputs.nineEightyAnchor.value) {
+    anchorFriday = normalizeAnchorFriday(parseISODate(inputs.nineEightyAnchor.value));
+  }
 
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month, day);
@@ -221,6 +243,9 @@ function renderMonth(monthDate) {
     if (holiday && Number(holiday.hours || 0) > 0) {
       button.classList.add("holiday");
       button.title = holiday.name;
+    }
+    if (anchorFriday && isNineEightyOffFriday(date, anchorFriday)) {
+      button.classList.add("off-friday");
     }
 
     const balance = state.balances[toISODate(date)];
@@ -593,15 +618,18 @@ function handleInputUpdates() {
 
 function setNineEightyVisibility() {
   inputs.nineEightyAnchorRow.hidden = !inputs.nineEighty.checked;
+  renderCalendar();
 }
 
 function validateNineEightyAnchor() {
   if (!inputs.nineEighty.checked) {
     inputs.nineEightyAnchor.setCustomValidity("");
+    renderCalendar();
     return;
   }
   if (!inputs.nineEightyAnchor.value) {
     inputs.nineEightyAnchor.setCustomValidity("");
+    renderCalendar();
     return;
   }
   const selected = parseISODate(inputs.nineEightyAnchor.value);
@@ -614,6 +642,7 @@ function validateNineEightyAnchor() {
   if (inputs.nineEightyAnchor.validationMessage) {
     inputs.nineEightyAnchor.value = "";
   }
+  renderCalendar();
 }
 
 seedDates();
