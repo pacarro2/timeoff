@@ -172,6 +172,7 @@ def federal_holidays(window_start: date, window_end: date) -> Dict[date, str]:
             (nth_weekday(year, 9, 0, 1), "Labor Day"),
             (nth_weekday(year, 10, 0, 2), "Columbus Day"),
             (nth_weekday(year, 11, 3, 4), "Thanksgiving Day"),
+            (nth_weekday(year, 11, 3, 4) + timedelta(days=1), "Day After Thanksgiving"),
         ]
         for holiday, name in fixed:
             if name in {"Christmas Eve", "New Year's Eve"}:
